@@ -1,0 +1,50 @@
+﻿<Window x:Class="DatabaseEditorV3.UndoChangesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DatabaseEditorV3"
+        xmlns:shared="clr-namespace:SharedLibrary"
+        mc:Ignorable="d"
+        WindowStyle="ToolWindow"
+        Title="Undo Changes" Height="300" Width="300"
+        >
+    <Window.Resources>
+        <shared:BoolConverter x:Key="BoolToLabelConverter" TrueValue="Redo" FalseValue="Undo"/>
+        <local:TypeConverter x:Key="TypeConverter"/>
+        <local:TableConverter x:Key="TableConverter"/>
+        <local:ColumnConverter x:Key="ColumnConverter"/>
+        <local:NewValueConverter x:Key="NewValueConverter"/>
+        <local:OldValueConverter x:Key="OldValueConverter"/>
+    </Window.Resources>
+    <Grid>
+        <DataGrid IsReadOnly="True" ItemsSource="{Binding UndoCommands}" AutoGenerateColumns="False" SelectionUnit="Cell">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding Path=Item.ID}"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding Path=., Converter={StaticResource TypeConverter}}"/>
+                <DataGridTextColumn Header="Table" Binding="{Binding Path=., Converter={StaticResource TableConverter}}"/>
+                <DataGridTextColumn Header="Column" Width="100" Binding="{Binding Path=., Converter={StaticResource ColumnConverter}}"/>
+                <DataGridTextColumn Header="Value" Width="100" Binding="{Binding Path=., Converter={StaticResource NewValueConverter}}"/>
+                <DataGridTextColumn Header="Old Value" Width="100" Binding="{Binding Path=., Converter={StaticResource OldValueConverter}}"/>
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Click="Button_Click"
+                                    Focusable="False"
+                                    Content="{Binding IsUndone, Converter={StaticResource BoolToLabelConverter}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Path=IsUndone}" Value="True">
+                            <Setter Property="Background" Value="Gray"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+    </Grid>
+</Window>

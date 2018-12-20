@@ -1,0 +1,318 @@
+﻿<Window x:Class="DatabaseEditorV3.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DatabaseEditorV3"
+        xmlns:shared="clr-namespace:SharedLibrary"
+        mc:Ignorable="d"
+        Closed="Window_Closed"
+        Loaded="MenuConnect_Click"
+        Title="Database Editor" Height="350" Width="675">
+    <Window.DataContext>
+        <local:MainWindowModel/>
+    </Window.DataContext>
+    <Window.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Open" Executed="CommandOpen_Executed"/>
+        <CommandBinding Command="ApplicationCommands.Find" Executed="CommandFind_Executed"/>
+        <CommandBinding Command="ApplicationCommands.Undo" Executed="CommandUndo_Executed" CanExecute="CommandUndo_CanExecute"/>
+    </Window.CommandBindings>
+    <Window.Resources>
+        <shared:BoolInverseConverter x:Key="BoolToInverseConverter"/>
+        <shared:BoolConverter x:Key="BoolToButtonConverter" TrueValue="On" FalseValue="Off" NullValue="Off"/>
+        <CollectionViewSource x:Key="MainCollectionViewSource" Source="{Binding PrimaryTable}" IsLiveSortingRequested="False"/>
+        <Style TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+        </Style>
+        <Style TargetType="local:BetterDataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
+            <Setter Property="AlternatingRowBackground" Value="LightGray"/>
+            <Setter Property="FormatShortTime" Value="{Binding DataContext.FormatShortTime, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"/>
+            <Setter Property="IsReadOnly" Value="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource BoolToInverseConverter}}"/>
+            <Setter Property="AllowDrop" Value="True"/>
+            <EventSetter Event="Drop" Handler="BetterDataGrid_Drop"/>
+        </Style>
+        <Style TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Padding" Value="5,0"/>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ToolBarTray Grid.Column="0">
+                <ToolBar BandIndex="0">
+                    <Grid Width="400" ToolBar.OverflowMode="Never">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Content="Schema:" Grid.Column="0"/>
+                        <ComboBox Grid.Column="1"
+                              DisplayMemberPath="Display"
+                              SelectedValuePath="Value"
+                              ItemsSource="{Binding Path=ListSchemaObjects}" 
+                              SelectedItem="{Binding Path=SelectedSchema}"/>
+                        <Label Content="Table:" Grid.Column="2"/>
+                        <ComboBox Grid.Column="3"
+                              DisplayMemberPath="Display"
+                              SelectedValuePath="Value"
+                              ItemsSource="{Binding Path=SelectedSchema.Value}" 
+                              SelectedItem="{Binding Path=SelectedTable}">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="{x:Type ComboBoxItem}" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Value}" Value="{x:Null}">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                                        <Separator HorizontalAlignment="Stretch" IsEnabled="False"/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+                    </Grid>
+                </ToolBar>
+                <ToolBar BandIndex="1">
+                    <StackPanel>
+                        <Label Content="Editing:"/>
+                        <ToggleButton Content="{Binding IsEditable, Converter={StaticResource BoolToButtonConverter}, Mode=OneWay}" IsChecked="{Binding IsEditable}"/>
+                        <Label Content="Filter:"/>
+                        <ToggleButton Content="{Binding IsFiltered, Converter={StaticResource BoolToButtonConverter}, Mode=OneWay}" IsChecked="{Binding IsFiltered}" Click="ButtonFilter_Click"/>
+                    </StackPanel>
+                </ToolBar>
+            </ToolBarTray>
+            <Button Grid.Column="1" Padding="0" VerticalContentAlignment="Stretch">
+            <Menu Grid.Column="1" IsMainMenu="True">
+                <MenuItem Header="Menu">
+                    <MenuItem Header="Database Connection" Click="MenuConnect_Click"/>
+                    <MenuItem Header="Import Wizard" Command="ApplicationCommands.Open"/>
+                    <MenuItem Header="Show Filters" Command="ApplicationCommands.Find"/>
+                    <MenuItem Header="Undo a Change" Command="ApplicationCommands.Undo"/>
+                </MenuItem>
+            </Menu>
+            </Button>
+        </Grid>
+        <ContentControl Grid.Row="1">
+            <ContentControl.Resources>
+                <DataTemplate x:Key="mainTable">
+                    <local:BetterDataGrid DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" 
+                                          ItemsSource="{Binding Path=PrimaryTable}"
+                                          IsReadOnly="{Binding DataContext.IsEditable, Converter={StaticResource BoolToInverseConverter}, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                          FormatShortTime="{Binding DataContext.FormatShortTime, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
+                        <local:BetterDataGrid.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="LightBlue"/>
+                            
+                        </local:BetterDataGrid.Resources>
+                    </local:BetterDataGrid>
+                </DataTemplate>
+                <DataTemplate x:Key="childTables">
+                    <TabControl DataContext="{Binding Path=DataContext.PrimaryTable, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" 
+                                ItemsSource="{Binding ForeignTables}"                                 
+                                Background="Transparent"
+                                SelectedIndex="0">
+                        <TabControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate>
+                                <local:BetterDataGrid ItemsSource="{Binding}"
+                                                      IsReadOnly="{Binding DataContext.IsEditable, Converter={StaticResource BoolToInverseConverter}, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                      FormatShortTime="{Binding DataContext.FormatShortTime, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                      />
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
+                    </TabControl>
+                </DataTemplate>
+                <Style TargetType="local:BetterDataGrid">
+                    <Setter Property="RowStyle">
+                        <Setter.Value>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="White"/>
+                                <Setter Property="Foreground" Value="Black"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasError}" Value="True">
+                                        <Setter Property="Background" Value="Red"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ContentControl.Resources>
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Setter Property="ContentTemplate">
+                        <Setter.Value>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="5"/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <ContentPresenter Grid.Row="0" ContentTemplate="{DynamicResource mainTable}"/>
+                                    <GridSplitter Grid.Row="1" Height="10" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+                                    <ContentPresenter Grid.Row="2" ContentTemplate="{DynamicResource childTables}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding LayoutHorizontal}" Value="False">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition/>
+                                                <ColumnDefinition Width="5"/>
+                                                <ColumnDefinition/>
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter Grid.Column="0" ContentTemplate="{DynamicResource mainTable}"/>
+                                            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                            <ContentPresenter Grid.Column="2" ContentTemplate="{DynamicResource childTables}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DataContext.PrimaryTable.ForeignTables.Count, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="0">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <ContentPresenter Grid.Row="0" ContentTemplate="{DynamicResource mainTable}"/>
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DataContext.PrimaryTable, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="{x:Null}">
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="Select a TABLE inside a SCHEMA above to view it here."/>
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+        <StatusBar Grid.Row="2">
+            <StatusBar.Resources>
+                <Style TargetType="Label">
+                    <Setter Property="Margin" Value="3,0"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Margin" Value="3,0"/>
+                    <Setter Property="Padding" Value="0"/>
+                </Style>
+                <Style TargetType="StatusBarItem">
+                    <Setter Property="Margin" Value="3,0"/>
+                    <Setter Property="Padding" Value="0"/>
+                </Style>
+                <Style TargetType="ToggleButton" BasedOn="{StaticResource {x:Static ToolBar.ToggleButtonStyleKey}}">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Margin" Value="1"/>
+                    <Setter Property="Padding" Value="3,0"/>
+                </Style>
+            </StatusBar.Resources>
+            <StatusBarItem>
+                <StackPanel>
+                    <Label Content="Connected to:"/>
+                    <TextBlock Text="{Binding DisplayedConnection}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <StackPanel>
+                    <Label Content="Main Table: "/>
+                    <TextBlock VerticalAlignment="Center">
+                        <Run Text="{Binding PrimaryTable.DisplayName, Mode=OneWay}"/>
+                        <Run Text="{Binding PrimaryTable.Count, Mode=OneWay}"/>
+                        <Run Text="rows"/>
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PrimaryTable}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Hidden"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem HorizontalContentAlignment="Right">
+                <StackPanel>
+                    <Label Content="Layout:"/>
+                    <ToggleButton IsChecked="{Binding LayoutHorizontal}" Height="15" Width="15">
+                        <ToggleButton.Style>
+                            <Style TargetType="{x:Type ToggleButton}" BasedOn="{StaticResource {x:Type ToggleButton}}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                            <ContentPresenter/>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Content">
+                                    <Setter.Value>
+                                        <Grid Background="Transparent">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" BorderBrush="Black" BorderThickness="1"/>
+                                            <Border Grid.Row="1" BorderBrush="Black" BorderThickness="1"/>
+                                        </Grid>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <Grid Background="Transparent">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" BorderBrush="Black" BorderThickness="1"/>
+                                                    <Border Grid.Column="1" BorderBrush="Black" BorderThickness="1"/>
+                                                </Grid>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+                    <ToggleButton Content="HH:MM" 
+                                  IsChecked="{Binding FormatShortTime}"
+                                  ToolTip="Show only the hours and minutes in time columns. You can also enter time values as 4-digits without a ':'."/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
